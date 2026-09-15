@@ -31,19 +31,35 @@ mvn spring-boot:run
 
 L'API est accessible sur `http://localhost:8080`.
 
+## Codes HTTP
+
+| Code | Signification | Quand |
+|---|---|---|
+| 200 | OK | Lecture ou mise a jour reussie |
+| 201 | Created | Creation d'une nouvelle course (PUT upsert) |
+| 400 | Bad Request | Parametres manquants ou invalides, statut invalide |
+| 403 | Forbidden | Cle API manquante ou invalide (x-api-key) |
+| 404 | Not Found | Ressource introuvable (driver, trip inexistant) |
+| 500 | Internal Server Error | Erreur interne du serveur |
+
 ## Securite
 
 L'API est protegee par une cle API. Toute requete doit inclure l'en-tete `x-api-key`.
 
 Cle API : `test`
 
+Sans cle ou avec une mauvaise cle : `403 Forbidden` avec le message `Bad credentials`.
+
 ## Tests curl
 
 ```bash
-# Sans cle API (retourne 401 Bad credentials)
+# Sans cle API (retourne 403 Bad credentials)
 curl http://localhost:8080/trips
 
-# Avec cle API
+# Avec mauvaise cle (retourne 403 Bad credentials)
+curl -H "x-api-key: wrong-key" http://localhost:8080/trips
+
+# Avec cle correcte
 curl -H "x-api-key: test" http://localhost:8080/trips
 
 # 1. Liste de toutes les courses

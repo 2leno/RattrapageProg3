@@ -6,7 +6,6 @@ import mg.hei.kofia.entity.dto.TripResponse;
 
 @Component
 public class TripMapper {
-
     private final DriverMapper driverMapper;
     private final VehicleMapper vehicleMapper;
 
