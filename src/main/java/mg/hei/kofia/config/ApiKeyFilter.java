@@ -27,7 +27,7 @@ public class ApiKeyFilter extends OncePerRequestFilter {
         String providedApiKey = request.getHeader(API_KEY_HEADER);
 
         if (providedApiKey == null || !providedApiKey.equals(expectedApiKey)) {
-            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+            response.setStatus(HttpServletResponse.SC_FORBIDDEN);
             response.setContentType("text/plain");
             response.getWriter().write("Bad credentials");
             return;
