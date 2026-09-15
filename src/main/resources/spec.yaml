@@ -1,0 +1,477 @@
+openapi: 3.1.0
+info:
+  title: KOFIA API
+  description: |
+    API REST de KOFIA, coopérative de transporteurs routiers basée à
+    Antananarivo. Permet de suivre les courses de fret réalisées par les
+    chauffeurs affiliés et de calculer les reversements mensuels : la
+    coopérative prélève une commission de 15 % sur le montant encaissé par
+    le chauffeur pour chaque course facturée (statut COMPLETED).
+
+    Available versions:
+    - v1.0.0 (2026-09-15): endpoints courses, reversement mensuel, statistiques de rentabilité.
+  version: 1.0.0
+servers:
+  - url: http://localhost:8080
+
+paths:
+  /trips:
+    get:
+      summary: Liste des courses
+      description: >
+        Retourne la liste des courses. Peut être filtrée par chauffeur
+        et/ou restreinte à une période ; tous les critères sont optionnels
+        et combinables.
+      operationId: listTrips
+      parameters:
+        - name: driverId
+          in: query
+          required: false
+          description: Ne retourne que les courses de ce chauffeur.
+          schema:
+            type: string
+          example: d-001
+        - name: from
+          in: query
+          required: false
+          description: Date de début (incluse) de la période de filtrage.
+          schema:
+            type: string
+            format: date
+          example: 2026-04-01
+        - name: to
+          in: query
+          required: false
+          description: Date de fin (incluse) de la période de filtrage.
+          schema:
+            type: string
+            format: date
+          example: 2026-04-30
+      responses:
+        '200':
+          description: Liste des courses correspondant aux critères fournis.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/TripResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /trips/{tripId}:
+    put:
+      summary: Crée ou remplace une course
+      description: >
+        Crée une nouvelle course si l'identifiant n'existe pas encore (201),
+        ou remplace intégralement la course existante (200). Une course
+        nouvellement créée a systématiquement le statut COMPLETED.
+      operationId: upsertTrip
+      parameters:
+        - $ref: '#/components/parameters/TripIdPathParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateTrip'
+      responses:
+        '201':
+          description: Course créée.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TripResponse'
+        '200':
+          description: Course existante remplacée.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TripResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /trips/{tripId}/status:
+    put:
+      summary: Modifie le statut d'une course
+      description: Change le statut d'une course existante (par exemple pour l'annuler).
+      operationId: updateTripStatus
+      parameters:
+        - $ref: '#/components/parameters/TripIdPathParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateTripStatus'
+      responses:
+        '200':
+          description: Course dont le statut a été mis à jour.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TripResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /drivers/{driverId}/revenue:
+    get:
+      summary: Chiffre d'affaires et commission d'un chauffeur
+      description: >
+        Calcule le chiffre d'affaires réalisé par un chauffeur sur une
+        période donnée (courses COMPLETED uniquement) ainsi que la
+        commission de 15 % due à la coopérative.
+      operationId: getDriverRevenue
+      parameters:
+        - $ref: '#/components/parameters/DriverIdPathParam'
+        - $ref: '#/components/parameters/FromQueryParam'
+        - $ref: '#/components/parameters/ToQueryParam'
+      responses:
+        '200':
+          description: Chiffre d'affaires et commission calculés pour la période.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DriverRevenueResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /drivers/{driverId}/statistics:
+    get:
+      summary: Statistiques de rentabilité d'un chauffeur
+      description: >
+        Calcule le prix moyen au kilomètre du chauffeur, toutes ses courses
+        COMPLETED confondues, toutes périodes confondues.
+      operationId: getDriverStatistics
+      parameters:
+        - $ref: '#/components/parameters/DriverIdPathParam'
+      responses:
+        '200':
+          description: Statistiques de rentabilité du chauffeur.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DriverStatisticsResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /statistics/top-earning-driver:
+    get:
+      summary: Chauffeur le plus rentable sur une période
+      description: >
+        Identifie, parmi tous les chauffeurs, celui ayant réalisé le plus
+        gros chiffre d'affaires (courses COMPLETED) sur la période donnée.
+      operationId: getTopEarningDriver
+      parameters:
+        - $ref: '#/components/parameters/FromQueryParam'
+        - $ref: '#/components/parameters/ToQueryParam'
+      responses:
+        '200':
+          description: Chauffeur ayant réalisé le plus gros chiffre d'affaires sur la période.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TopEarningDriverResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+components:
+  parameters:
+    TripIdPathParam:
+      name: tripId
+      in: path
+      required: true
+      description: Identifiant unique de la course.
+      schema:
+        type: string
+      example: t-020
+    DriverIdPathParam:
+      name: driverId
+      in: path
+      required: true
+      description: Identifiant unique du chauffeur.
+      schema:
+        type: string
+      example: d-001
+    FromQueryParam:
+      name: from
+      in: query
+      required: true
+      description: Date de début (incluse) de la période, au format AAAA-MM-JJ.
+      schema:
+        type: string
+        format: date
+      example: 2026-04-01
+    ToQueryParam:
+      name: to
+      in: query
+      required: true
+      description: Date de fin (incluse) de la période, au format AAAA-MM-JJ.
+      schema:
+        type: string
+        format: date
+      example: 2026-04-30
+
+  responses:
+    BadRequest:
+      description: Paramètre manquant ou invalide.
+      content:
+        application/json:
+          schema:
+            type: string
+          example: "Le paramètre 'from' est invalide ou manquant."
+    NotFound:
+      description: Ressource introuvable.
+      content:
+        application/json:
+          schema:
+            type: string
+          example: "Aucun chauffeur trouvé pour l'identifiant 'd-999'."
+    InternalError:
+      description: Erreur interne inattendue.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+  schemas:
+    TripStatus:
+      type: string
+      description: >
+        Statut d'une course. Seules les courses au statut COMPLETED donnent
+        lieu à facturation et à commission.
+      enum: [COMPLETED, CANCELLED]
+      example: COMPLETED
+
+    DriverIdentifier:
+      type: string
+      description: Référence à un chauffeur par son identifiant.
+      example: d-001
+
+    VehicleIdentifier:
+      type: string
+      description: Référence à un véhicule par son identifiant.
+      example: v-001
+
+    DriverSummary:
+      type: object
+      description: Représentation compacte d'un chauffeur, imbriquée dans une course.
+      required: [id, name]
+      properties:
+        id:
+          type: string
+          example: d-001
+        name:
+          type: string
+          example: Rakoto Jean
+
+    VehicleSummary:
+      type: object
+      description: Représentation compacte d'un véhicule, imbriquée dans une course.
+      required: [id, plateNumber]
+      properties:
+        id:
+          type: string
+          example: v-001
+        plateNumber:
+          type: string
+          example: TAA-1001
+
+    CreateTrip:
+      type: object
+      description: >
+        Payload de création ou de remplacement d'une course. Le statut de
+        la course résultante est toujours COMPLETED.
+      required:
+        - driverId
+        - vehicleId
+        - tripDate
+        - departureCity
+        - arrivalCity
+        - distanceKm
+        - billedAmount
+      properties:
+        driverId:
+          $ref: '#/components/schemas/DriverIdentifier'
+        vehicleId:
+          $ref: '#/components/schemas/VehicleIdentifier'
+        tripDate:
+          type: string
+          format: date
+          description: Date à laquelle la course a été effectuée.
+          example: 2026-04-28
+        departureCity:
+          type: string
+          example: Antananarivo
+        arrivalCity:
+          type: string
+          example: Moramanga
+        distanceKm:
+          type: integer
+          description: Distance parcourue, en kilomètres.
+          example: 110
+        billedAmount:
+          type: integer
+          description: Montant facturé au client, en MGA.
+          example: 880000
+
+    TripResponse:
+      type: object
+      description: Représentation complète d'une course.
+      required:
+        - id
+        - driver
+        - vehicle
+        - tripDate
+        - departureCity
+        - arrivalCity
+        - distanceKm
+        - billedAmount
+        - status
+      properties:
+        id:
+          type: string
+          example: t-001
+        driver:
+          $ref: '#/components/schemas/DriverSummary'
+        vehicle:
+          $ref: '#/components/schemas/VehicleSummary'
+        tripDate:
+          type: string
+          format: date
+          example: 2026-04-02
+        departureCity:
+          type: string
+          example: Antananarivo
+        arrivalCity:
+          type: string
+          example: Toamasina
+        distanceKm:
+          type: integer
+          example: 350
+        billedAmount:
+          type: integer
+          description: Montant facturé, en MGA.
+          example: 2800000
+        status:
+          $ref: '#/components/schemas/TripStatus'
+
+    UpdateTripStatus:
+      type: object
+      description: Payload de changement de statut d'une course.
+      required: [status]
+      properties:
+        status:
+          $ref: '#/components/schemas/TripStatus'
+
+    DriverRevenueResponse:
+      type: object
+      description: Chiffre d'affaires et commission d'un chauffeur sur une période.
+      required: [driverId, driverName, from, to, revenue, cooperativeFee]
+      properties:
+        driverId:
+          type: string
+          example: d-001
+        driverName:
+          type: string
+          example: Rakoto Jean
+        from:
+          type: string
+          format: date
+          example: 2026-04-01
+        to:
+          type: string
+          format: date
+          example: 2026-04-30
+        revenue:
+          type: integer
+          description: Somme des montants facturés des courses COMPLETED sur la période, en MGA.
+          example: 6960000
+        cooperativeFee:
+          type: integer
+          description: Commission de 15 % due à la coopérative sur la période, en MGA.
+          example: 1044000
+
+    DriverStatisticsResponse:
+      type: object
+      description: Statistiques de rentabilité d'un chauffeur, toutes périodes confondues.
+      required: [driverId, driverName, completedTrips, totalDistanceKm, averagePricePerKm]
+      properties:
+        driverId:
+          type: string
+          example: d-001
+        driverName:
+          type: string
+          example: Rakoto Jean
+        completedTrips:
+          type: integer
+          description: Nombre de courses au statut COMPLETED.
+          example: 4
+        totalDistanceKm:
+          type: integer
+          description: Distance totale parcourue sur les courses COMPLETED, en kilomètres.
+          example: 1280
+        averagePricePerKm:
+          type: number
+          format: double
+          description: Prix moyen au kilomètre, toutes courses COMPLETED confondues.
+          example: 8000.0
+
+    TopEarningDriverResponse:
+      type: object
+      description: Chauffeur ayant réalisé le plus gros chiffre d'affaires sur une période.
+      required: [driverId, driverName, revenue]
+      properties:
+        driverId:
+          type: string
+          example: d-002
+        driverName:
+          type: string
+          example: Hery Randria
+        revenue:
+          type: integer
+          description: Chiffre d'affaires réalisé sur la période, en MGA.
+          example: 10880000
+
+    ErrorResponse:
+      type: object
+      description: Corps d'erreur structuré retourné pour les erreurs internes inattendues (500).
+      required: [timestamp, status, error, message]
+      properties:
+        timestamp:
+          type: string
+          format: date-time
+          example: "2026-09-15T10:32:00Z"
+        status:
+          type: integer
+          example: 500
+        error:
+          type: string
+          example: Internal Server Error
+        message:
+          type: string
+          example: Une erreur inattendue est survenue.
+        path:
+          type: string
+          description: Chemin de la requête ayant provoqué l'erreur.
+          example: /drivers/d-001/revenue
