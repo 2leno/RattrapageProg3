@@ -13,9 +13,9 @@ public class DatabaseConfig {
     @Bean
     public Connection connection() {
         Dotenv dotenv = Dotenv.load();
-        String url = dotenv.get("DB_URL");
-        String username = dotenv.get("DB_USERNAME");
-        String password = dotenv.get("DB_PASSWORD");
+        String url = dotenv.get("JDBC_URL");
+        String username = dotenv.get("JDBC_USERNAME");
+        String password = dotenv.get("JDBC_PASSWORD");
         try {
             return DriverManager.getConnection(url, username, password);
         } catch (Exception e) {
